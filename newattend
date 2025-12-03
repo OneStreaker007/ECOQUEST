@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NullYex Attendance</title>
+    <style>
+        :root {
+            --bg-main: #000000;
+            --bg-card: #0a0a0a;
+            --border: #222222;
+            --text-main: #ffffff;
+            --text-muted: #666666;
+            --accent: #ffffff;
+            
+            --status-present: #000000;
+            --status-present-text: #4ade80;
+            
+            --status-absent: #250505;
+            --status-absent-text: #f87171;
+
+            --status-unmarked: #111111;
+            --status-unmarked-text: #444444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Courier New', Courier, monospace; /* Monospaced for tech feel */
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Header */
+        header {
+            width: 100%;
+            max-width: 900px;
+            margin-bottom: 3rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: end;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            letter-spacing: -2px;
+            font-weight: 700;
+        }
+
+        .version {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        /* Controls Grid */
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr 2fr;
+            gap: 1rem;
+            width: 100%;
+            max-width: 900px;
+            margin-bottom: 1rem;
+        }
+        
+        /* URL Input Row */
+        .url-row {
+            width: 100%;
+            max-width: 900px;
+            margin-bottom: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .controls { grid-template-columns: 1fr; }
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+        }
+
+        input, select, button {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 1rem;
+            font-size: 0.9rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--accent);
+        }
+
+        /* Interactive Elements */
+        button.action-btn {
+            background: var(--accent);
+            color: var(--bg-main);
+            font-weight: bold;
+            cursor: pointer;
+            border: 1px solid var(--accent);
+        }
+
+        button.action-btn:hover {
+            opacity: 0.9;
+        }
+        
+        button.secondary-btn {
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            cursor: pointer;
+        }
+        
+        button.secondary-btn:hover {
+            border-color: var(--text-muted);
+            color: var(--text-main);
+        }
+
+        /* Table */
+        .table-wrapper {
+            width: 100%;
+            max-width: 900px;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 600px;
+        }
+
+        th {
+            text-align: left;
+            padding: 1rem;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-card);
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+
+        /* Status Cell Logic */
+        .status-cell {
+            cursor: pointer;
+            user-select: none;
+            font-weight: bold;
+            text-align: center;
+            transition: all 0.1s;
+        }
+
+        .status-present {
+            background-color: rgba(74, 222, 128, 0.05);
+            color: var(--status-present-text);
+            border-left: 4px solid var(--status-present-text);
+        }
+
+        .status-absent {
+            background-color: var(--status-absent);
+            color: var(--status-absent-text);
+            border-left: 4px solid var(--status-absent-text);
+        }
+        
+        .status-unmarked {
+            background-color: var(--status-unmarked);
+            color: var(--status-unmarked-text);
+            border-left: 4px solid var(--text-muted);
+        }
+
+        /* Footer */
+        .footer-bar {
+            width: 100%;
+            max-width: 900px;
+            margin-top: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        #syncStatus {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            flex-grow: 1;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        
+        .modal {
+            background: var(--bg-card);
+            padding: 2rem;
+            border: 1px solid var(--border);
+            width: 400px;
+            max-width: 90%;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-wide {
+            width: 700px;
+        }
+        
+        .code-block {
+            background: #111;
+            padding: 1rem;
+            font-size: 0.7rem;
+            color: #aaa;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            white-space: pre-wrap;
+        }
+        
+        strong.warn {
+            color: #f87171;
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>NullYex.</h1>
+        <span class="version">v1.3 | IMPORTANT: Update Script</span>
+    </header>
+
+    <div class="url-row">
+        <div class="input-group">
+            <label>Cloud Sync URL (Google Script)</label>
+            <input type="text" id="cloudUrlInput" placeholder="https://script.google.com/macros/s/..." onchange="saveUrl()">
+        </div>
+    </div>
+
+    <div class="controls">
+        <!-- Date Selection -->
+        <div class="input-group">
+            <label>01. Select Date</label>
+            <input type="date" id="dateInput">
+        </div>
+
+        <!-- Day Display -->
+        <div class="input-group">
+            <label>02. Day</label>
+            <input type="text" id="dayDisplay" readonly placeholder="Auto-detected">
+        </div>
+
+        <!-- Subject Selection -->
+        <div class="input-group">
+            <label>03. Select Subject</label>
+            <select id="subjectSelect" disabled>
+                <option value="">Waiting for date...</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table id="attendanceTable">
+            <thead>
+                <tr>
+                    <th style="width: 50px;">#</th>
+                    <th>Enrollment</th>
+                    <th>Student Name</th>
+                    <th>Roll</th>
+                    <th style="width: 150px; text-align: center;">Status</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <!-- Rows generated by JS -->
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 3rem; color: #333;">
+                        Select a date and subject to load data.
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="footer-bar">
+        <button class="secondary-btn" onclick="openSetupModal()">Setup Guide (Fix Columns)</button>
+        <span id="syncStatus">System Ready.</span>
+        <button class="action-btn" onclick="initiateSync()">SYNC / OVERWRITE CLOUD</button>
+    </div>
+
+    <!-- Password Modal -->
+    <div class="modal-overlay" id="authModal">
+        <div class="modal">
+            <label>Admin Access</label>
+            <input type="password" id="adminPass" placeholder="Enter Password">
+            <button class="action-btn" onclick="verifyAndSync()">Confirm</button>
+            <button onclick="closeModal('authModal')" style="background:transparent; border:none; color: #666; cursor:pointer;">Cancel</button>
+        </div>
+    </div>
+    
+    <!-- Setup Modal -->
+    <div class="modal-overlay" id="setupModal">
+        <div class="modal modal-wide">
+            <h3>Google Sheets Update Required</h3>
+            <p style="font-size: 0.8rem; color: #888;">To get the new columns, you must update the Apps Script.</p>
+            
+            <ol style="font-size: 0.8rem; margin-left: 1.2rem; display: flex; flex-direction: column; gap: 0.5rem; color: #ccc;">
+                <li>Open your <strong>Google Sheet</strong>.</li>
+                <li>Go to <strong>Extensions > Apps Script</strong>.</li>
+                <li><strong class="warn">DELETE ALL EXISTING CODE.</strong></li>
+                <li>Paste the code below.</li>
+                <li>Click <strong>Deploy > New Deployment</strong> (<strong class="warn">Crucial Step!</strong>).</li>
+                <li>Select type: <strong>Web App</strong>, Access: <strong>Anyone</strong>.</li>
+                <li>Click <strong>Deploy</strong> and use the <strong>NEW URL</strong>.</li>
+                <li><em>Recommended: Delete the old sheet tab (e.g., "Wednesday") so a fresh one is created.</em></li>
+            </ol>
+
+            <div class="code-block">
+function doPost(e) {
+  var lock = LockService.getScriptLock();
+  lock.tryLock(10000); 
+
+  try {
+    var payload = JSON.parse(e.postData.contents);
+    var doc = SpreadsheetApp.getActiveSpreadsheet();
+    var sheetName = payload.date; 
+    var sheet = doc.getSheetByName(sheetName);
+
+    // 1. Create Sheet if missing and set Fixed Headers
+    if (!sheet) {
+      sheet = doc.insertSheet(sheetName);
+      sheet.appendRow(["Serial No", "Name", "Enrollment No", "Roll No"]);
+      sheet.getRange(1, 1, 1, 4).setFontWeight("bold");
+      sheet.setFrozenRows(1);
+      sheet.setFrozenColumns(4);
+    }
+
+    // 2. Find or Create Subject Column
+    var headers = sheet.getDataRange().getValues()[0];
+    var subject = payload.subject;
+    // Check if subject exists in headers
+    var subjectColIndex = headers.indexOf(subject) + 1;
+
+    if (subjectColIndex === 0) {
+      // Create new column for this subject
+      subjectColIndex = headers.length + 1;
+      sheet.getRange(1, subjectColIndex).setValue(subject).setFontWeight("bold");
+    }
+
+    // 3. Map Existing Rows (Enrollment -> Row Index)
+    var data = sheet.getDataRange().getValues();
+    var enrollmentMap = {};
+    // Start from 1 to skip header
+    for (var i = 1; i < data.length; i++) {
+      var enroll = data[i][2]; // Column 3 is Enrollment
+      enrollmentMap[enroll] = i + 1; // Store 1-based row index
+    }
+
+    // 4. Update or Append Records
+    payload.records.forEach(function(record) {
+      var rowIdx = enrollmentMap[record.enrollment];
+
+      // If student not found, append new row
+      if (!rowIdx) {
+        var nextSNo = sheet.getLastRow(); 
+        sheet.appendRow([nextSNo, record.name, record.enrollment, record.rollNo]);
+        rowIdx = sheet.getLastRow();
+        enrollmentMap[record.enrollment] = rowIdx;
+      }
+
+      // Determine value to write ('-' for Unmarked)
+      var statusVal = (record.status === 'U') ? '-' : record.status;
+      
+      // Update the specific cell for this subject
+      sheet.getRange(rowIdx, subjectColIndex).setValue(statusVal);
+    });
+
+    return ContentService.createTextOutput("Success");
+
+  } catch (err) {
+    return ContentService.createTextOutput("Error: " + err.toString());
+  } finally {
+    lock.releaseLock();
+  }
+}
+            </div>
+            
+            <button class="action-btn" onclick="closeModal('setupModal')">Close Guide</button>
+        </div>
+    </div>
+
+<script>
+    // --- INTEGRATED DATA ---
+    
+    const timetableData = {
+        "Monday": [
+            {"time": "10:30-11:25", "subject": "Engineering Mathematics"},
+            {"time": "11:30-12:20", "subject": "Software Foundation And Programming"},
+            {"time": "12:30-01:25", "subject": "Basic Electrical Engineering"},
+            {"time": "01:30-02:25", "subject": "Engineering Physics"},
+            {"time": "02:25-04:45", "subject": "Software Foundation And Programming Lab"}
+        ],
+        "Tuesday": [
+            {"time": "10:30-11:25", "subject": "Software Foundation And Programming"},
+            {"time": "11:30-12:20", "subject": "Computer Aided Engineering Graphics"},
+            {"time": "12:30-01:25", "subject": "Basic Electrical Engineering"},
+            {"time": "01:30-02:25", "subject": "Engineering Physics"},
+            {"time": "02:25-03:45", "subject": "Engineering Mathematics"},
+            {"time": "03:50-04:45", "subject": "Biology For Engineers (Coursera)"}
+        ],
+        "Wednesday": [
+            {"time": "10:30-11:25", "subject": "Software Foundation And Programming"},
+            {"time": "11:30-12:20", "subject": "Sports/Yoga / NSS-NCC"},
+            {"time": "12:30-01:25", "subject": "Basic Electrical Engineering"},
+            {"time": "01:30-02:25", "subject": "Engineering Mathematics"},
+            {"time": "02:25-04:45", "subject": "Software Foundation And Programming Lab"}
+        ],
+        "Thursday": [
+            {"time": "10:30-12:20", "subject": "Basic Electrical Engineering Lab"},
+            {"time": "12:30-01:25", "subject": "Software Foundation And Programming"},
+            {"time": "01:30-02:25", "subject": "Basic Electrical Engineering"},
+            {"time": "02:25-03:45", "subject": "Engineering Mathematics"},
+            {"time": "03:50-04:45", "subject": "Engineering Physics"}
+        ],
+        "Friday": [
+            {"time": "10:30-11:25", "subject": "Engineering Physics"},
+            {"time": "11:30-12:20", "subject": "Sports/Yoga / NSS-NCC"},
+            {"time": "12:30-01:25", "subject": "Engineering Mathematics"},
+            {"time": "01:30-02:25", "subject": "Basic Electrical Engineering"},
+            {"time": "02:25-04:45", "subject": "Computer Aided Engineering Graphics Lab"}
+        ],
+        "Saturday": [
+            {"time": "10:30-11:25", "subject": "Computer Aided Engineering Graphics"},
+            {"time": "11:30-12:20", "subject": "Engineering Physics"},
+            {"time": "12:30-02:25", "subject": "Engineering Physics Lab"},
+            {"time": "02:25-03:45", "subject": "Software Foundation And Programming"},
+            {"time": "03:50-04:45", "subject": "Engineering Mathematics"}
+        ]
+    };
+
+    const studentsData = [
+          {"name":"Sangam Kumar","rollNo":"1","enrollmentNo":"AJU/250052"},
+          {"name":"Kumari Shashi Verma","rollNo":"2","enrollmentNo":"AJU/250055"},
+          {"name":"Arpit Swarnkar","rollNo":"3","enrollmentNo":"AJU/250197"},
+          {"name":"Surjo Banerjee","rollNo":"4","enrollmentNo":"AJU/250201"},
+          {"name":"Mohit Verma","rollNo":"5","enrollmentNo":"AJU/250289"},
+          {"name":"Rohan Thakur","rollNo":"6","enrollmentNo":"AJU/250325"},
+          {"name":"Kumari Raj Nandani","rollNo":"7","enrollmentNo":"AJU/250402"},
+          {"name":"Tanmaya Behera","rollNo":"8","enrollmentNo":"AJU/250416"},
+          {"name":"Nishant Tiwary","rollNo":"9","enrollmentNo":"AJU/250419"},
+          {"name":"Jaisleen Kaur","rollNo":"10","enrollmentNo":"AJU/250475"},
+          {"name":"Khushwant Mardi","rollNo":"11","enrollmentNo":"AJU/250478"},
+          {"name":"Rishu Singh","rollNo":"12","enrollmentNo":"AJU/250505"},
+          {"name":"Soni Singh","rollNo":"13","enrollmentNo":"AJU/250506"},
+          {"name":"Pallavi Kumari","rollNo":"14","enrollmentNo":"AJU/250564"},
+          {"name":"Harshdeep Singh","rollNo":"15","enrollmentNo":"AJU/250572"},
+          {"name":"Rupesh Anand","rollNo":"16","enrollmentNo":"AJU/250579"},
+          {"name":"Azlan Ali","rollNo":"17","enrollmentNo":"AJU/250582"},
+          {"name":"Suraj Mallik","rollNo":"18","enrollmentNo":"AJU/250620"},
+          {"name":"Sarvottam Priye","rollNo":"19","enrollmentNo":"AJU/250685"},
+          {"name":"Chetan Singh","rollNo":"20","enrollmentNo":"AJU/250775"},
+          {"name":"Mohammad Kamran Alvi","rollNo":"21","enrollmentNo":"AJU/250779"},
+          {"name":"Mohammad Rehan","rollNo":"22","enrollmentNo":"AJU/250848"},
+          {"name":"Rishika Kumari","rollNo":"23","enrollmentNo":"AJU/250878"},
+          {"name":"Gourav Kumar Mahato","rollNo":"24","enrollmentNo":"AJU/250885"},
+          {"name":"Raju Gorai","rollNo":"25","enrollmentNo":"AJU/250993"},
+          {"name":"Ishika Kumari","rollNo":"26","enrollmentNo":"AJU/251021"},
+          {"name":"Naina Kumari","rollNo":"27","enrollmentNo":"AJU/251025"},
+          {"name":"Ritika Kumari","rollNo":"28","enrollmentNo":"AJU/251088"},
+          {"name":"Farhan Khalid","rollNo":"29","enrollmentNo":"AJU/251152"},
+          {"name":"Amrit Ranjan","rollNo":"30","enrollmentNo":"AJU/251221"},
+          {"name":"Soumya Mishra","rollNo":"31","enrollmentNo":"AJU/251316"},
+          {"name":"Shivam Purty","rollNo":"32","enrollmentNo":"AJU/251335"},
+          {"name":"Arshal Nasim","rollNo":"33","enrollmentNo":"AJU/251377"},
+          {"name":"Hemant Kumar","rollNo":"34","enrollmentNo":"AJU/251442"},
+          {"name":"Simiya Khatoon","rollNo":"35","enrollmentNo":"AJU/251452"},
+          {"name":"Umair Raza","rollNo":"36","enrollmentNo":"AJU/251455"},
+          {"name":"Anish Kumar Mahato","rollNo":"37","enrollmentNo":"AJU/251472"},
+          {"name":"Kritika Raj","rollNo":"38","enrollmentNo":"AJU/251580"},
+          {"name":"Rahul Kumar Mandal","rollNo":"39","enrollmentNo":"AJU/251641"},
+          {"name":"Keshav Chourasia","rollNo":"40","enrollmentNo":"AJU/251694"},
+          {"name":"Priyanshu Sen","rollNo":"41","enrollmentNo":"AJU/251734"},
+          {"name":"Ayush Kumar","rollNo":"42","enrollmentNo":"AJU/251740"},
+          {"name":"Mohani Prasad","rollNo":"43","enrollmentNo":"AJU/251755"},
+          {"name":"Rahul Kumar Singh","rollNo":"44","enrollmentNo":"AJU/251798"},
+          {"name":"Paras","rollNo":"45","enrollmentNo":"AJU/251858"},
+          {"name":"Ayushman Mandal","rollNo":"46","enrollmentNo":"AJU/251907"},
+          {"name":"Mohammad Aaban Ahmad","rollNo":"47","enrollmentNo":"AJU/251969"},
+          {"name":"Harsh Nayan","rollNo":"48","enrollmentNo":"AJU/251999"},
+          {"name":"Ayush Kumar Singh","rollNo":"49","enrollmentNo":"AJU/252009"},
+          {"name":"Janvi Sinha","rollNo":"50","enrollmentNo":"AJU/252075"},
+          {"name":"Ashutosh Sharma","rollNo":"51","enrollmentNo":"AJU/252078"},
+          {"name":"Humaira Kayenat","rollNo":"52","enrollmentNo":"AJU/252105"},
+          {"name":"G.omkeswari","rollNo":"53","enrollmentNo":"AJU/25XXXX"}
+    ];
+
+    // --- APP LOGIC ---
+
+    const dateInput = document.getElementById('dateInput');
+    const dayDisplay = document.getElementById('dayDisplay');
+    const subjectSelect = document.getElementById('subjectSelect');
+    const tableBody = document.getElementById('tableBody');
+    const syncStatus = document.getElementById('syncStatus');
+    const authModal = document.getElementById('authModal');
+    const setupModal = document.getElementById('setupModal');
+    const adminPass = document.getElementById('adminPass');
+    const cloudUrlInput = document.getElementById('cloudUrlInput');
+
+    const savedUrl = localStorage.getItem('nullYexCloudUrl');
+    if (savedUrl) {
+        cloudUrlInput.value = savedUrl;
+    }
+
+    function saveUrl() {
+        localStorage.setItem('nullYexCloudUrl', cloudUrlInput.value);
+    }
+
+    // Key = EnrollmentNo, Value = 'U', 'P', 'A'
+    let currentAttendance = {}; 
+
+    dateInput.addEventListener('change', (e) => {
+        const dateVal = e.target.value;
+        if (!dateVal) return;
+
+        const dateObj = new Date(dateVal);
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const dayName = days[dateObj.getDay()];
+
+        dayDisplay.value = dayName;
+        populateSubjects(dayName);
+    });
+
+    function populateSubjects(dayName) {
+        subjectSelect.innerHTML = '<option value="">-- Select Subject --</option>';
+        subjectSelect.disabled = true;
+
+        if (timetableData[dayName] && timetableData[dayName].length > 0) {
+            timetableData[dayName].forEach(slot => {
+                if (slot.subject) { 
+                    const opt = document.createElement('option');
+                    opt.value = slot.subject;
+                    opt.textContent = `[${slot.time}] ${slot.subject}`;
+                    subjectSelect.appendChild(opt);
+                }
+            });
+            subjectSelect.disabled = false;
+        } else {
+            const opt = document.createElement('option');
+            opt.textContent = "No classes scheduled";
+            subjectSelect.appendChild(opt);
+        }
+        
+        tableBody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 3rem; color: #333;">Select a subject.</td></tr>';
+    }
+
+    subjectSelect.addEventListener('change', () => {
+        if(subjectSelect.value) {
+            renderTable();
+        }
+    });
+
+    function renderTable() {
+        tableBody.innerHTML = '';
+        currentAttendance = {}; 
+
+        studentsData.forEach((student, index) => {
+            if(!student.name) return; 
+
+            // Default Status: Unmarked ('U')
+            currentAttendance[student.enrollmentNo] = 'U';
+
+            const row = document.createElement('tr');
+            
+            row.innerHTML = `
+                <td style="color: #666;">${index + 1}</td>
+                <td>${student.enrollmentNo}</td>
+                <td>${student.name}</td>
+                <td style="color: #888;">${student.rollNo}</td>
+                <td class="status-cell status-unmarked" 
+                    id="cell-${student.enrollmentNo}"
+                    onclick="toggleStatus('${student.enrollmentNo}')">
+                    -
+                </td>
+            `;
+            tableBody.appendChild(row);
+        });
+        syncStatus.innerText = "Attendance ready. Defaulted to Unmarked.";
+        syncStatus.style.color = "#666";
+    }
+
+    window.toggleStatus = function(enrollmentNo) {
+        const cell = document.getElementById(`cell-${enrollmentNo}`);
+        const currentStatus = currentAttendance[enrollmentNo];
+
+        cell.classList.remove('status-present', 'status-absent', 'status-unmarked');
+
+        if (currentStatus === 'U') {
+            currentAttendance[enrollmentNo] = 'P';
+            cell.classList.add('status-present');
+            cell.innerText = "PRESENT";
+        } else if (currentStatus === 'P') {
+            currentAttendance[enrollmentNo] = 'A';
+            cell.classList.add('status-absent');
+            cell.innerText = "ABSENT";
+        } else {
+            currentAttendance[enrollmentNo] = 'U';
+            cell.classList.add('status-unmarked');
+            cell.innerText = "-";
+        }
+    };
+
+    window.initiateSync = function() {
+        if (!cloudUrlInput.value) {
+            alert("Please enter the Cloud Sync URL first.");
+            return;
+        }
+        if (!subjectSelect.value || !dateInput.value) {
+            alert("Please select a valid Date and Subject first.");
+            return;
+        }
+        authModal.style.display = 'flex';
+        adminPass.value = '';
+        adminPass.focus();
+    };
+    
+    window.openSetupModal = function() {
+        setupModal.style.display = 'flex';
+    };
+
+    window.closeModal = function(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    };
+
+    window.verifyAndSync = function() {
+        const pass = adminPass.value;
+
+        if (pass === 'yex') {
+            closeModal('authModal');
+            performCloudSync();
+        } else {
+            alert("Access Denied: Invalid Credentials");
+        }
+    };
+
+    function performCloudSync() {
+        const url = cloudUrlInput.value;
+        syncStatus.innerText = "Syncing with cloud...";
+        syncStatus.style.color = "#fff";
+
+        // Map data to include student details for the sheet
+        const enrichedRecords = Object.entries(currentAttendance).map(([enrollment, status]) => {
+            const student = studentsData.find(s => s.enrollmentNo === enrollment);
+            return {
+                enrollment: enrollment,
+                name: student ? student.name : "Unknown",
+                rollNo: student ? student.rollNo : "N/A",
+                status: status
+            };
+        });
+
+        const payload = {
+            date: dateInput.value,
+            day: dayDisplay.value,
+            subject: subjectSelect.value,
+            records: enrichedRecords
+        };
+
+        fetch(url, {
+            method: 'POST',
+            mode: 'no-cors', 
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(() => {
+            syncStatus.innerText = "Success: Data sent to Cloud.";
+            syncStatus.style.color = "#4ade80";
+        })
+        .catch(err => {
+            console.error(err);
+            syncStatus.innerText = "Error: Sync failed. Check URL/Console.";
+            syncStatus.style.color = "#f87171";
+        });
+    }
+
+</script>
+</body>
+</html>
